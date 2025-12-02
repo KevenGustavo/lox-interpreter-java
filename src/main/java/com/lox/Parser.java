@@ -1,5 +1,6 @@
 package com.lox;
 
+import java.util.ArrayList;
 import java.util.List;
 import static com.lox.TokenType.*;
 
@@ -13,27 +14,35 @@ public class Parser {
     this.tokens = tokens;
   }
 
-  // Entry point
-  Expr parse() {
-    try {
-      return expression();
-    } catch (ParseError error) {
-      return null;
+  List<Stmt> parse() {
+    List<Stmt> statements = new ArrayList<>();
+    while (!isAtEnd()) {
+      statements.add(statement());
     }
+
+    return statements; 
   }
-
-  // expression     → equality ; 
-  // equality       → comparison ( ( "!=" | "==" ) comparison )* ; IGUALDADE 
-  // comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* - COMPARAÇÃO; 
-  // addition       → multiplication ( ( "-" | "+" ) multiplication )* - ADIÇÃO; 
-  // multiplication → unary ( ( "/" | "*" ) unary )* - MULTIPLICAÇÃO; 
-  // unary          → ( "!" | "-" ) unary | primary - ; 
-  // primary        → NUMBER | STRING | "true" | "false" | "nil" 
-  //                | "(" expression ")" ;
-
   
   private Expr expression() {
     return equality();
+  }
+
+  private Stmt statement() {
+    if (match(PRINT)) return printStatement();
+
+    return expressionStatement();
+  }
+
+  private Stmt printStatement() {
+    Expr value = expression();
+    consume(SEMICOLON, "Expect ';' after value.");
+    return new Stmt.Print(value);
+  }
+
+  private Stmt expressionStatement() {
+    Expr expr = expression();
+    consume(SEMICOLON, "Expect ';' after expression.");
+    return new Stmt.Expression(expr);
   }
 
   private Expr equality() {
