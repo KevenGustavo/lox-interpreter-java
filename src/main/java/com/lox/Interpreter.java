@@ -2,7 +2,7 @@ package com.lox;
 
 import java.util.List;
 
-class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
+class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   private Environment environment = new Environment();
 
   void interpret(List<Stmt> statements) {
@@ -14,6 +14,10 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
       Lox.runtimeError(error);
     }
   }
+
+  // ---------------------
+  // EXPRESSIONS
+  // ---------------------
 
   @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
@@ -37,7 +41,7 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
         return !isTruthy(right);
     }
 
-    return null;
+    return null; // Unreachable.
   }
 
   @Override
@@ -46,26 +50,40 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
   }
 
   @Override
+  public Object visitAssignExpr(Expr.Assign expr) {
+    Object value = evaluate(expr.value);
+    environment.assign(expr.name, value);
+    return value;
+  }
+
+  @Override
   public Object visitBinaryExpr(Expr.Binary expr) {
     Object left = evaluate(expr.left);
     Object right = evaluate(expr.right);
 
     switch (expr.operator.type) {
+
       case GREATER:
         checkNumberOperands(expr.operator, left, right);
         return (double) left > (double) right;
+
       case GREATER_EQUAL:
         checkNumberOperands(expr.operator, left, right);
         return (double) left >= (double) right;
+
       case LESS:
         checkNumberOperands(expr.operator, left, right);
         return (double) left < (double) right;
+
       case LESS_EQUAL:
         checkNumberOperands(expr.operator, left, right);
         return (double) left <= (double) right;
 
-      case BANG_EQUAL: return !isEqual(left, right);
-      case EQUAL_EQUAL: return isEqual(left, right);
+      case BANG_EQUAL:
+        return !isEqual(left, right);
+
+      case EQUAL_EQUAL:
+        return isEqual(left, right);
 
       case MINUS:
         checkNumberOperands(expr.operator, left, right);
@@ -78,8 +96,9 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
         if (left instanceof String && right instanceof String) {
           return (String) left + (String) right;
         }
+
         throw new RuntimeError(expr.operator,
-          "Operands must be two numbers or two strings.");
+            "Operands must be two numbers or two strings.");
 
       case SLASH:
         checkNumberOperands(expr.operator, left, right);
@@ -90,8 +109,12 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
         return (double) left * (double) right;
     }
 
-    return null;
+    return null; // Unreachable.
   }
+
+  // ---------------------
+  // STATEMENTS
+  // ---------------------
 
   private Object evaluate(Expr expr) {
     return expr.accept(this);
@@ -101,8 +124,7 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
     stmt.accept(this);
   }
 
-  void executeBlock(List<Stmt> statements,
-                    Environment environment) {
+  void executeBlock(List<Stmt> statements, Environment environment) {
     Environment previous = this.environment;
     try {
       this.environment = environment;
@@ -145,12 +167,20 @@ class Interpreter implements Expr.Visitor<Object>,Stmt.Visitor<Void> {
     return null;
   }
 
+  // 👉 **NOVIDADE DO CAPÍTULO 9**
   @Override
-  public Object visitAssignExpr(Expr.Assign expr) {
-    Object value = evaluate(expr.value);
-    environment.assign(expr.name, value);
-    return value;
+  public Void visitIfStmt(Stmt.If stmt) {
+    if (isTruthy(evaluate(stmt.condition))) {
+      execute(stmt.thenBranch);
+    } else if (stmt.elseBranch != null) {
+      execute(stmt.elseBranch);
+    }
+    return null;
   }
+
+  // ---------------------
+  // UTILITIES
+  // ---------------------
 
   private boolean isTruthy(Object object) {
     if (object == null) return false;

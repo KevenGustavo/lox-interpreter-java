@@ -1,20 +1,16 @@
-package com.lox.tool;
+package com.craftinginterpreters.tool;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
 
-public class GenerateAst{
-  public static void main(String[] args) throws IOException {
-    if (args.length != 1) {
-      System.err.println("Usage: generate_ast <output directory>");
-      System.exit(64);
-    }
-    String outputDir = args[0];
+public class GenerateAst {
 
+  public static void main(String[] args) throws IOException {
+    String outputDir = args[0];
     defineAst(outputDir, "Expr", Arrays.asList(
-"Assign   : Token name, Expr value",
+      "Assign   : Token name, Expr value",
       "Binary   : Expr left, Token operator, Expr right",
       "Grouping : Expr expression",
       "Literal  : Object value",
@@ -23,16 +19,18 @@ public class GenerateAst{
     ));
 
     defineAst(outputDir, "Stmt", Arrays.asList(
-"Block      : List<Stmt> statements",
+      "Block      : List<Stmt> statements",
       "Expression : Expr expression",
       "Print      : Expr expression",
-      "Var        : Token name, Expr initializer"
+      "Var        : Token name, Expr initializer",
+      "If         : Expr condition, Stmt thenBranch, Stmt elseBranch"
     ));
   }
 
   private static void defineAst(
       String outputDir, String baseName, List<String> types)
       throws IOException {
+
     String path = outputDir + "/" + baseName + ".java";
     PrintWriter writer = new PrintWriter(path, "UTF-8");
 
@@ -42,15 +40,25 @@ public class GenerateAst{
     writer.println();
     writer.println("abstract class " + baseName + " {");
 
-    defineVisitor(writer, baseName, types);
+    // Visitor interface
+    writer.println("  interface Visitor<R> {");
 
-    // Vai gerar as classes internas
+    for (String type : types) {
+      String typeName = type.split(":")[0].trim();
+      writer.println(
+          "    R visit" + typeName + baseName + "(" +
+              typeName + " " + baseName.toLowerCase() + ");");
+    }
+    writer.println("  }");
+
+    // The AST classes
     for (String type : types) {
       String className = type.split(":")[0].trim();
       String fields = type.split(":")[1].trim();
       defineType(writer, baseName, className, fields);
     }
 
+    // Base accept() method
     writer.println();
     writer.println("  abstract <R> R accept(Visitor<R> visitor);");
 
@@ -58,30 +66,24 @@ public class GenerateAst{
     writer.close();
   }
 
-  private static void defineVisitor(
-      PrintWriter writer, String baseName, List<String> types) {
-    writer.println("  interface Visitor<R> {");
-
-    for (String type : types) {
-      String typeName = type.split(":")[0].trim();
-      writer.println("    R visit" + typeName + baseName + "(" +
-          typeName + " " + baseName.toLowerCase() + ");");
-    }
-
-    writer.println("  }");
-  }
-
   private static void defineType(
       PrintWriter writer, String baseName,
       String className, String fieldList) {
+
+    writer.println();
     writer.println("  static class " + className + " extends " +
         baseName + " {");
 
-    // Linha do construtor.
+    // Fields
+    String[] fields = fieldList.split(", ");
+    for (String field : fields) {
+      writer.println("    final " + field + ";");
+    }
+
+    // Constructor
+    writer.println();
     writer.println("    " + className + "(" + fieldList + ") {");
 
-    // Vai inicializar os campos.
-    String[] fields = fieldList.split(", ");
     for (String field : fields) {
       String name = field.split(" ")[1];
       writer.println("      this." + name + " = " + name + ";");
@@ -89,19 +91,13 @@ public class GenerateAst{
 
     writer.println("    }");
 
-    // Visitor pattern.
+    // Visitor pattern
     writer.println();
     writer.println("    @Override");
     writer.println("    <R> R accept(Visitor<R> visitor) {");
     writer.println("      return visitor.visit" +
         className + baseName + "(this);");
     writer.println("    }");
-
-    // Vai declarar os campos.
-    writer.println();
-    for (String field : fields) {
-      writer.println("    final " + field + ";");
-    }
 
     writer.println("  }");
   }

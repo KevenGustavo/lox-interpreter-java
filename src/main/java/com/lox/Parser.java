@@ -2,53 +2,39 @@ package com.lox;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import static com.lox.TokenType.*;
 
-public class Parser {
+class Parser {
   private static class ParseError extends RuntimeException {}
 
   private final List<Token> tokens;
   private int current = 0;
 
-  public Parser(List<Token> tokens) {
+  Parser(List<Token> tokens) {
     this.tokens = tokens;
   }
 
   List<Stmt> parse() {
     List<Stmt> statements = new ArrayList<>();
     while (!isAtEnd()) {
-        statements.add(declaration());
+      statements.add(declaration());
     }
+    return statements;
+  }
 
-    return statements; 
-  }
-  
-  private Expr expression() {
-      return assignment();
-  }
+  // --------------------
+  // DECLARATIONS
+  // --------------------
 
   private Stmt declaration() {
     try {
       if (match(VAR)) return varDeclaration();
-
       return statement();
     } catch (ParseError error) {
       synchronize();
       return null;
     }
-  }
-
-  private Stmt statement() {
-    if (match(PRINT)) return printStatement();
-    if (match(LEFT_BRACE)) return new Stmt.Block(block());
-
-    return expressionStatement();
-  }
-
-  private Stmt printStatement() {
-    Expr value = expression();
-    consume(SEMICOLON, "Expect ';' after value.");
-    return new Stmt.Print(value);
   }
 
   private Stmt varDeclaration() {
@@ -61,6 +47,38 @@ public class Parser {
 
     consume(SEMICOLON, "Expect ';' after variable declaration.");
     return new Stmt.Var(name, initializer);
+  }
+
+  // --------------------
+  // STATEMENTS
+  // --------------------
+
+  private Stmt statement() {
+    if (match(IF)) return ifStatement();
+    if (match(PRINT)) return printStatement();
+    if (match(LEFT_BRACE)) return new Stmt.Block(block());
+    return expressionStatement();
+  }
+
+  private Stmt ifStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'if'.");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+    Stmt thenBranch = statement();
+    Stmt elseBranch = null;
+
+    if (match(ELSE)) {
+      elseBranch = statement();
+    }
+
+    return new Stmt.If(condition, thenBranch, elseBranch);
+  }
+
+  private Stmt printStatement() {
+    Expr value = expression();
+    consume(SEMICOLON, "Expect ';' after value.");
+    return new Stmt.Print(value);
   }
 
   private Stmt expressionStatement() {
@@ -80,6 +98,14 @@ public class Parser {
     return statements;
   }
 
+  // --------------------
+  // EXPRESSIONS
+  // --------------------
+
+  private Expr expression() {
+    return assignment();
+  }
+
   private Expr assignment() {
     Expr expr = equality();
 
@@ -88,11 +114,11 @@ public class Parser {
       Expr value = assignment();
 
       if (expr instanceof Expr.Variable) {
-        Token name = ((Expr.Variable)expr).name;
+        Token name = ((Expr.Variable) expr).name;
         return new Expr.Assign(name, value);
       }
 
-      error(equals, "Invalid assignment target."); 
+      error(equals, "Invalid assignment target.");
     }
 
     return expr;
@@ -175,10 +201,13 @@ public class Parser {
       return new Expr.Grouping(expr);
     }
 
-    throw error(peek(), "Expect expression."); // <-- 6.4 final change
+    throw error(peek(), "Expect expression.");
   }
 
-  
+  // --------------------
+  // HELPERS
+  // --------------------
+
   private boolean match(TokenType... types) {
     for (TokenType type : types) {
       if (check(type)) {
@@ -187,11 +216,6 @@ public class Parser {
       }
     }
     return false;
-  }
-
-  private Token consume(TokenType type, String message) {
-    if (check(type)) return advance();
-    throw error(peek(), message);
   }
 
   private boolean check(TokenType type) {
@@ -216,12 +240,17 @@ public class Parser {
     return tokens.get(current - 1);
   }
 
+  private Token consume(TokenType type, String message) {
+    if (check(type)) return advance();
+    throw error(peek(), message);
+  }
+
   private ParseError error(Token token, String message) {
     Lox.error(token, message);
     return new ParseError();
   }
 
-  private void synchronize() { // <-- 6.3.3
+  private void synchronize() {
     advance();
 
     while (!isAtEnd()) {
