@@ -1,11 +1,11 @@
-package com.lox;
+package com.craftinginterpreters.lox;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static com.lox.TokenType.*;
+import static com.craftinginterpreters.lox.TokenType.*;
 
 class Parser {
+
   private static class ParseError extends RuntimeException {}
 
   private final List<Token> tokens;
@@ -16,16 +16,15 @@ class Parser {
   }
 
   List<Stmt> parse() {
-    List<Stmt> statements = new ArrayList<>();
+    new java.util.ArrayList<Stmt>();
+    java.util.ArrayList<Stmt> statements = new java.util.ArrayList<>();
+
     while (!isAtEnd()) {
       statements.add(declaration());
     }
+
     return statements;
   }
-
-  // --------------------
-  // DECLARATIONS
-  // --------------------
 
   private Stmt declaration() {
     try {
@@ -49,14 +48,10 @@ class Parser {
     return new Stmt.Var(name, initializer);
   }
 
-  // --------------------
-  // STATEMENTS
-  // --------------------
-
   private Stmt statement() {
-    if (match(IF)) return ifStatement();
     if (match(PRINT)) return printStatement();
     if (match(LEFT_BRACE)) return new Stmt.Block(block());
+    if (match(IF)) return ifStatement();
     return expressionStatement();
   }
 
@@ -88,7 +83,7 @@ class Parser {
   }
 
   private List<Stmt> block() {
-    List<Stmt> statements = new ArrayList<>();
+    java.util.ArrayList<Stmt> statements = new java.util.ArrayList<>();
 
     while (!check(RIGHT_BRACE) && !isAtEnd()) {
       statements.add(declaration());
@@ -98,27 +93,51 @@ class Parser {
     return statements;
   }
 
-  // --------------------
+  // ======================
   // EXPRESSIONS
-  // --------------------
+  // ======================
 
   private Expr expression() {
     return assignment();
   }
 
   private Expr assignment() {
-    Expr expr = equality();
+    Expr expr = or(); // <--- atualizado para 9.3
 
     if (match(EQUAL)) {
       Token equals = previous();
       Expr value = assignment();
 
       if (expr instanceof Expr.Variable) {
-        Token name = ((Expr.Variable) expr).name;
+        Token name = ((Expr.Variable)expr).name;
         return new Expr.Assign(name, value);
       }
 
       error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+
+  private Expr or() {
+    Expr expr = and();
+
+    while (match(OR)) {
+      Token operator = previous();
+      Expr right = and();
+      expr = new Expr.Logical(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  private Expr and() {
+    Expr expr = equality();
+
+    while (match(AND)) {
+      Token operator = previous();
+      Expr right = equality();
+      expr = new Expr.Logical(expr, operator, right);
     }
 
     return expr;
@@ -204,9 +223,14 @@ class Parser {
     throw error(peek(), "Expect expression.");
   }
 
-  // --------------------
-  // HELPERS
-  // --------------------
+  // ======================
+  // UTILS
+  // ======================
+
+  private Token consume(TokenType type, String message) {
+    if (check(type)) return advance();
+    throw error(peek(), message);
+  }
 
   private boolean match(TokenType... types) {
     for (TokenType type : types) {
@@ -238,11 +262,6 @@ class Parser {
 
   private Token previous() {
     return tokens.get(current - 1);
-  }
-
-  private Token consume(TokenType type, String message) {
-    if (check(type)) return advance();
-    throw error(peek(), message);
   }
 
   private ParseError error(Token token, String message) {
