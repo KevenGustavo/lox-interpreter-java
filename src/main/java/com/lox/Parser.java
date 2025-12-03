@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.List;
+import java.util.ArrayList;
 
 import static com.craftinginterpreters.lox.TokenType.*;
 
@@ -16,13 +17,10 @@ class Parser {
   }
 
   List<Stmt> parse() {
-    new java.util.ArrayList<Stmt>();
-    java.util.ArrayList<Stmt> statements = new java.util.ArrayList<>();
-
+    List<Stmt> statements = new ArrayList<>();
     while (!isAtEnd()) {
       statements.add(declaration());
     }
-
     return statements;
   }
 
@@ -50,9 +48,18 @@ class Parser {
 
   private Stmt statement() {
     if (match(PRINT)) return printStatement();
-    if (match(LEFT_BRACE)) return new Stmt.Block(block());
+    if (match(WHILE)) return whileStatement();
     if (match(IF)) return ifStatement();
+    if (match(LEFT_BRACE)) return new Stmt.Block(block());
     return expressionStatement();
+  }
+
+  private Stmt whileStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'while'.");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after condition.");
+    Stmt body = statement();
+    return new Stmt.While(condition, body);
   }
 
   private Stmt ifStatement() {
@@ -62,7 +69,6 @@ class Parser {
 
     Stmt thenBranch = statement();
     Stmt elseBranch = null;
-
     if (match(ELSE)) {
       elseBranch = statement();
     }
@@ -83,7 +89,7 @@ class Parser {
   }
 
   private List<Stmt> block() {
-    java.util.ArrayList<Stmt> statements = new java.util.ArrayList<>();
+    List<Stmt> statements = new ArrayList<>();
 
     while (!check(RIGHT_BRACE) && !isAtEnd()) {
       statements.add(declaration());
@@ -93,16 +99,12 @@ class Parser {
     return statements;
   }
 
-  // ======================
-  // EXPRESSIONS
-  // ======================
-
   private Expr expression() {
     return assignment();
   }
 
   private Expr assignment() {
-    Expr expr = or(); // <--- atualizado para 9.3
+    Expr expr = equality();
 
     if (match(EQUAL)) {
       Token equals = previous();
@@ -114,30 +116,6 @@ class Parser {
       }
 
       error(equals, "Invalid assignment target.");
-    }
-
-    return expr;
-  }
-
-  private Expr or() {
-    Expr expr = and();
-
-    while (match(OR)) {
-      Token operator = previous();
-      Expr right = and();
-      expr = new Expr.Logical(expr, operator, right);
-    }
-
-    return expr;
-  }
-
-  private Expr and() {
-    Expr expr = equality();
-
-    while (match(AND)) {
-      Token operator = previous();
-      Expr right = equality();
-      expr = new Expr.Logical(expr, operator, right);
     }
 
     return expr;
@@ -195,7 +173,7 @@ class Parser {
     if (match(BANG, MINUS)) {
       Token operator = previous();
       Expr right = unary();
-      return new Expr.Unary(operator, right);
+      return new Expr.Unary(right, operator);
     }
 
     return primary();
@@ -221,15 +199,6 @@ class Parser {
     }
 
     throw error(peek(), "Expect expression.");
-  }
-
-  // ======================
-  // UTILS
-  // ======================
-
-  private Token consume(TokenType type, String message) {
-    if (check(type)) return advance();
-    throw error(peek(), message);
   }
 
   private boolean match(TokenType... types) {
@@ -262,6 +231,11 @@ class Parser {
 
   private Token previous() {
     return tokens.get(current - 1);
+  }
+
+  private Token consume(TokenType type, String message) {
+    if (check(type)) return advance();
+    throw error(peek(), message);
   }
 
   private ParseError error(Token token, String message) {
