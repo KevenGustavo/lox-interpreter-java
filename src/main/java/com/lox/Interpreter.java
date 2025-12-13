@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.List;
+import java.util.ArrayList;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
@@ -15,6 +16,111 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     } catch (RuntimeError error) {
       Lox.runtimeError(error);
     }
+  }
+
+  @Override
+  public Object visitLiteralExpr(Expr.Literal expr) {
+    return expr.value;
+  }
+
+  @Override
+  public Object visitGroupingExpr(Expr.Grouping expr) {
+    return evaluate(expr.expression);
+  }
+
+  @Override
+  public Object visitUnaryExpr(Expr.Unary expr) {
+    Object right = evaluate(expr.right);
+
+    switch (expr.operator.type) {
+      case MINUS:
+        checkNumberOperand(expr.operator, right);
+        return -(double) right;
+      case BANG:
+        return !isTruthy(right);
+    }
+
+    return null;
+  }
+
+  @Override
+  public Object visitVariableExpr(Expr.Variable expr) {
+    return environment.get(expr.name);
+  }
+
+  @Override
+  public Object visitBinaryExpr(Expr.Binary expr) {
+    Object left = evaluate(expr.left);
+    Object right = evaluate(expr.right);
+
+    switch (expr.operator.type) {
+      case GREATER:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left > (double) right;
+      case GREATER_EQUAL:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left >= (double) right;
+      case LESS:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left < (double) right;
+      case LESS_EQUAL:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left <= (double) right;
+
+      case BANG_EQUAL: return !isEqual(left, right);
+      case EQUAL_EQUAL: return isEqual(left, right);
+
+      case MINUS:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left - (double) right;
+
+      case PLUS:
+        if (left instanceof Double && right instanceof Double) {
+          return (double) left + (double) right;
+        }
+        if (left instanceof String && right instanceof String) {
+          return (String) left + (String) right;
+        }
+        throw new RuntimeError(expr.operator,
+          "Operands must be two numbers or two strings.");
+
+      case SLASH:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left / (double) right;
+
+      case STAR:
+        checkNumberOperands(expr.operator, left, right);
+        return (double) left * (double) right;
+    }
+
+    return null;
+  }
+
+  @Override
+  public Object visitCallExpr(Expr.Call expr) {
+    Object callee = evaluate(expr.callee);
+
+    List<Object> arguments = new ArrayList<>();
+    for (Expr argument : expr.arguments) { 
+      arguments.add(evaluate(argument));
+    }
+
+    if (!(callee instanceof LoxCallable)) {
+      throw new RuntimeError(expr.paren,
+          "Can only call functions and classes.");
+    }
+
+    LoxCallable function = (LoxCallable)callee;
+    if (arguments.size() != function.arity()) {
+      throw new RuntimeError(expr.paren, "Expected " +
+          function.arity() + " arguments but got " +
+          arguments.size() + ".");
+    }
+    return function.call(this, arguments);
+  }
+
+  private Object evaluate(Expr expr) {
+    return expr.accept(this);
   }
 
   private void execute(Stmt stmt) {
