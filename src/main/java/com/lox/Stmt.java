@@ -5,6 +5,7 @@ import java.util.List;
 abstract class Stmt {
   interface Visitor<R> {
     R visitBlockStmt(Block stmt);
+    R visitClassStmt(Class stmt); // ← NOVO
     R visitExpressionStmt(Expression stmt);
     R visitFunctionStmt(Function stmt);
     R visitIfStmt(If stmt);
@@ -13,6 +14,24 @@ abstract class Stmt {
     R visitVarStmt(Var stmt);
     R visitWhileStmt(While stmt);
   }
+
+  // ---------- NOVO ----------
+  static class Class extends Stmt {
+    final Token name;
+    final List<Stmt.Function> methods;
+
+    Class(Token name, List<Stmt.Function> methods) {
+      this.name = name;
+      this.methods = methods;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitClassStmt(this);
+    }
+  }
+  // --------------------------
+
   static class Block extends Stmt {
     final List<Stmt> statements;
 
@@ -25,6 +44,7 @@ abstract class Stmt {
       return visitor.visitBlockStmt(this);
     }
   }
+
   static class Expression extends Stmt {
     final Expr expression;
 
@@ -37,6 +57,7 @@ abstract class Stmt {
       return visitor.visitExpressionStmt(this);
     }
   }
+
   static class Function extends Stmt {
     final Token name;
     final List<Token> params;
@@ -53,6 +74,7 @@ abstract class Stmt {
       return visitor.visitFunctionStmt(this);
     }
   }
+
   static class If extends Stmt {
     final Expr condition;
     final Stmt thenBranch;
@@ -69,6 +91,7 @@ abstract class Stmt {
       return visitor.visitIfStmt(this);
     }
   }
+
   static class Print extends Stmt {
     final Expr expression;
 
@@ -81,6 +104,7 @@ abstract class Stmt {
       return visitor.visitPrintStmt(this);
     }
   }
+
   static class Return extends Stmt {
     final Token keyword;
     final Expr value;
@@ -95,6 +119,7 @@ abstract class Stmt {
       return visitor.visitReturnStmt(this);
     }
   }
+
   static class Var extends Stmt {
     final Token name;
     final Expr initializer;
@@ -109,6 +134,7 @@ abstract class Stmt {
       return visitor.visitVarStmt(this);
     }
   }
+
   static class While extends Stmt {
     final Expr condition;
     final Stmt body;
