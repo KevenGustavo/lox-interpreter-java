@@ -8,10 +8,68 @@ import static com.lox.TokenType.*;
 
 class Parser {
   private static class ParseError extends RuntimeException {}
-
+  
   private final List<Token> tokens;
   private int current = 0;
 
+  Parser(List<Token> tokens) {
+    this.tokens = tokens;
+  }
+
+  private Expr assignment() {
+    Expr expr = or();
+
+    if (match(EQUAL)) {
+      Token equals = previous();
+      Expr value = assignment();
+
+      if (expr instanceof Expr.Variable) {
+        Token name = ((Expr.Variable) expr).name;
+        return new Expr.Assign(name, value);
+      } else if (expr instanceof Expr.Get) {
+        Expr.Get get = (Expr.Get) expr;
+        return new Expr.Set(get.object, get.name, value);
+      }
+
+      error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+
+  private Expr call() {
+    Expr expr = primary();
+
+    while (true) {
+      if (match(LEFT_PAREN)) {
+        expr = finishCall(expr);
+      } else if (match(DOT)) {
+        Token name = consume(IDENTIFIER,
+            "Expect property name after '.'.");
+        expr = new Expr.Get(expr, name);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
+  }
+
+  private Expr finishCall(Expr callee) {
+    List<Expr> arguments = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        arguments.add(expression());
+      } while (match(COMMA));
+    }
+
+    Token paren = consume(RIGHT_PAREN,
+        "Expect ')' after arguments.");
+
+    return new Expr.Call(callee, paren, arguments);
+  }
+
+  
   Parser(List<Token> tokens) {
     this.tokens = tokens;
   }

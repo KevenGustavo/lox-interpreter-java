@@ -7,9 +7,46 @@ import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
+  private enum FunctionType {
+    NONE,
+    FUNCTION,
+    METHOD
+  }
+
   private final Interpreter interpreter;
   private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+  private FunctionType currentFunction = FunctionType.NONE;
 
+  Resolver(Interpreter interpreter) {
+    this.interpreter = interpreter;
+  }
+
+  @Override
+  public Void visitClassStmt(Stmt.Class stmt) {
+    declare(stmt.name);
+    define(stmt.name);
+
+    for (Stmt.Function method : stmt.methods) {
+      resolveFunction(method, FunctionType.METHOD);
+    }
+
+    return null;
+  }
+
+  @Override
+  public Void visitGetExpr(Expr.Get expr) {
+    resolve(expr.object);
+    return null;
+  }
+
+  @Override
+  public Void visitSetExpr(Expr.Set expr) {
+    resolve(expr.value);
+    resolve(expr.object);
+    return null;
+  }
+
+  
   /* ===== Resolution Errors ===== */
   private FunctionType currentFunction = FunctionType.NONE;
 
