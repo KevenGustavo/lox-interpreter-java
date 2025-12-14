@@ -1,11 +1,23 @@
-package com.lox;
+package com.craftinginterpreters.lox;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class Environment {
+class Environment {
   final Environment enclosing;
   private final Map<String, Object> values = new HashMap<>();
+
+  Environment() {
+    enclosing = null;
+  }
+
+  Environment(Environment enclosing) {
+    this.enclosing = enclosing;
+  }
+
+  void define(String name, Object value) {
+    values.put(name, value);
+  }
 
   Object get(Token name) {
     if (values.containsKey(name.lexeme)) {
@@ -14,8 +26,8 @@ public class Environment {
 
     if (enclosing != null) return enclosing.get(name);
 
-    throw new RuntimeError(name,
-        "Undefined variable '" + name.lexeme + "'.");
+    throw new RuntimeError(
+        name, "Undefined variable '" + name.lexeme + "'.");
   }
 
   void assign(Token name, Object value) {
@@ -29,19 +41,25 @@ public class Environment {
       return;
     }
 
-    throw new RuntimeError(name,
-        "Undefined variable '" + name.lexeme + "'.");
+    throw new RuntimeError(
+        name, "Undefined variable '" + name.lexeme + "'.");
   }
 
-  void define(String name, Object value) {
-    values.put(name, value);
+  /* ======== Interpreting Resolved Variables ======== */
+
+  Object getAt(int distance, String name) {
+    return ancestor(distance).values.get(name);
   }
 
-  Environment() {
-    enclosing = null;
+  void assignAt(int distance, Token name, Object value) {
+    ancestor(distance).values.put(name.lexeme, value);
   }
 
-  Environment(Environment enclosing) {
-    this.enclosing = enclosing;
+  Environment ancestor(int distance) {
+    Environment environment = this;
+    for (int i = 0; i < distance; i++) {
+      environment = environment.enclosing;
+    }
+    return environment;
   }
 }
