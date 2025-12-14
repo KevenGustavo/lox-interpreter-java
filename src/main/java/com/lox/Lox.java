@@ -1,4 +1,4 @@
-package com.craftinginterpreters.lox;
+package com.lox;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,6 +56,7 @@ public class Lox {
     Resolver resolver = new Resolver(interpreter);
     resolver.resolve(statements);
 
+    // ⛔ Para se houve erro de resolução
     if (hadError) return;
 
     interpreter.interpret(statements);
@@ -73,8 +74,7 @@ public class Lox {
     }
   }
 
-  private static void report(int line, String where,
-                             String message) {
+  private static void report(int line, String where, String message) {
     System.err.println(
         "[line " + line + "] Error" + where + ": " + message);
     hadError = true;

@@ -6,11 +6,21 @@ import java.util.Map;
 import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
+
   private final Interpreter interpreter;
   private final Stack<Map<String, Boolean>> scopes = new Stack<>();
 
+  /* ===== Resolution Errors ===== */
+  private FunctionType currentFunction = FunctionType.NONE;
+
   Resolver(Interpreter interpreter) {
     this.interpreter = interpreter;
+  }
+
+  /* ===== Enum para controle de contexto ===== */
+  private enum FunctionType {
+    NONE,
+    FUNCTION
   }
 
   void resolve(List<Stmt> statements) {
@@ -19,15 +29,15 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
   }
 
-  private void resolveFunction(Stmt.Function function) {
-    beginScope();
-    for (Token param : function.params) {
-      declare(param);
-      define(param);
-    }
-    resolve(function.body);
-    endScope();
+  private void resolve(Stmt stmt) {
+    stmt.accept(this);
   }
+
+  private void resolve(Expr expr) {
+    expr.accept(this);
+  }
+
+  /* =================== Statements =================== */
 
   @Override
   public Void visitBlockStmt(Stmt.Block stmt) {
@@ -38,8 +48,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   }
 
   @Override
-  public Void visitExpressionStmt(Stmt.Expression stmt) {
-    resolve(stmt.expression);
+  public Void visitVarStmt(Stmt.Var stmt) {
+    declare(stmt.name);
+    if (stmt.initializer != null) {
+      resolve(stmt.initializer);
+    }
+    define(stmt.name);
     return null;
   }
 
@@ -48,7 +62,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     declare(stmt.name);
     define(stmt.name);
 
-    resolveFunction(stmt);
+    resolveFunction(stmt, FunctionType.FUNCTION);
+    return null;
+  }
+
+  @Override
+  public Void visitExpressionStmt(Stmt.Expression stmt) {
+    resolve(stmt.expression);
     return null;
   }
 
@@ -68,20 +88,15 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitReturnStmt(Stmt.Return stmt) {
+    if (currentFunction == FunctionType.NONE) {
+      Lox.error(stmt.keyword,
+          "Não é possível usar return fora de uma função.");
+    }
+
     if (stmt.value != null) {
       resolve(stmt.value);
     }
 
-    return null;
-  }
-
-  @Override
-  public Void visitVarStmt(Stmt.Var stmt) {
-    declare(stmt.name);
-    if (stmt.initializer != null) {
-      resolve(stmt.initializer);
-    }
-    define(stmt.name);
     return null;
   }
 
@@ -91,6 +106,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     resolve(stmt.body);
     return null;
   }
+
+  /* =================== Expressions =================== */
 
   @Override
   public Void visitAssignExpr(Expr.Assign expr) {
@@ -109,11 +126,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   @Override
   public Void visitCallExpr(Expr.Call expr) {
     resolve(expr.callee);
-
     for (Expr argument : expr.arguments) {
       resolve(argument);
     }
-
     return null;
   }
 
@@ -146,19 +161,30 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if (!scopes.isEmpty() &&
         scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
       Lox.error(expr.name,
-          "Can't read local variable in its own initializer.");
+          "Não é possível ler variável local em seu próprio inicializador.");
     }
 
     resolveLocal(expr, expr.name);
     return null;
   }
 
-  private void resolve(Stmt stmt) {
-    stmt.accept(this);
-  }
+  /* =================== Helpers =================== */
 
-  private void resolve(Expr expr) {
-    expr.accept(this);
+  private void resolveFunction(
+      Stmt.Function function, FunctionType type) {
+
+    FunctionType enclosingFunction = currentFunction;
+    currentFunction = type;
+
+    beginScope();
+    for (Token param : function.params) {
+      declare(param);
+      define(param);
+    }
+    resolve(function.body);
+    endScope();
+
+    currentFunction = enclosingFunction;
   }
 
   private void beginScope() {
@@ -173,6 +199,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if (scopes.isEmpty()) return;
 
     Map<String, Boolean> scope = scopes.peek();
+
+    if (scope.containsKey(name.lexeme)) {
+      Lox.error(name,
+          "Já existe uma variável com esse nome neste escopo.");
+    }
+
     scope.put(name.lexeme, false);
   }
 
@@ -188,5 +220,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return;
       }
     }
+    // variável global
   }
 }
