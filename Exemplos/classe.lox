@@ -1,0 +1,18 @@
+class Contador {
+  init(valor) {
+    this.valor = valor;
+  }
+
+  inc() {
+    this.valor = this.valor + 1;
+  }
+
+  get() {
+    return this.valor;
+  }
+}
+
+var c = Contador(10);
+c.inc();
+c.inc();
+print c.get();
