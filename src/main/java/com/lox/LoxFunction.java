@@ -3,6 +3,7 @@ package com.lox;
 import java.util.List;
 
 class LoxFunction implements LoxCallable {
+
   private final Stmt.Function declaration;
   private final Environment closure;
   private final boolean isInitializer;
@@ -22,31 +23,35 @@ class LoxFunction implements LoxCallable {
   }
 
   @Override
-  public String toString() {
-    return "<fn " + declaration.name.lexeme + ">";
-  }
-
-  @Override
   public int arity() {
     return declaration.params.size();
   }
 
   @Override
-  public Object call(Interpreter interpreter, List<Object> arguments) {
+  public Object call(Interpreter interpreter,
+                     List<Object> arguments) {
     Environment environment = new Environment(closure);
+
     for (int i = 0; i < declaration.params.size(); i++) {
       environment.define(declaration.params.get(i).lexeme,
-          arguments.get(i));
+                         arguments.get(i));
     }
 
     try {
       interpreter.executeBlock(declaration.body, environment);
     } catch (Return returnValue) {
-      if (isInitializer) return closure.getAt(0, "this");
+      if (isInitializer) {
+        return closure.getAt(0, "this");
+      }
       return returnValue.value;
     }
 
     if (isInitializer) return closure.getAt(0, "this");
     return null;
+  }
+
+  @Override
+  public String toString() {
+    return "<fn " + declaration.name.lexeme + ">";
   }
 }

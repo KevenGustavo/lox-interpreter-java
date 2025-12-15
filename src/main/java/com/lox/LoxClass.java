@@ -1,4 +1,4 @@
-package com.craftinginterpreters.lox;
+package com.lox;
 
 import java.util.List;
 import java.util.Map;
@@ -14,25 +14,20 @@ class LoxClass implements LoxCallable {
   }
 
   LoxFunction findMethod(String name) {
-    if (methods.containsKey(name)) {
-      return methods.get(name);
-    }
-    return null;
+    return methods.get(name);
   }
 
   @Override
-  public Object call(Interpreter interpreter, List<Object> arguments) {
-    // 1. Cria a instância
+  public Object call(Interpreter interpreter,
+                     List<Object> arguments) {
     LoxInstance instance = new LoxInstance(this);
 
-    // 2. Procura por init()
     LoxFunction initializer = findMethod("init");
     if (initializer != null) {
-      // 3. Liga 'this' e chama o init
-      initializer.bind(instance).call(interpreter, arguments);
+      initializer.bind(instance)
+                 .call(interpreter, arguments);
     }
 
-    // 4. Sempre retorna a instância
     return instance;
   }
 

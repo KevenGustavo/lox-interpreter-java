@@ -29,8 +29,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     this.interpreter = interpreter;
   }
 
+  /* =================== ENTRY =================== */
+
   void resolve(List<Stmt> statements) {
-    for (Stmt stmt : statements) resolve(stmt);
+    for (Stmt stmt : statements) {
+      resolve(stmt);
+    }
   }
 
   private void resolve(Stmt stmt) {
@@ -41,7 +45,77 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     expr.accept(this);
   }
 
-  // ---------- Statements ----------
+  /* =================== STATEMENTS =================== */
+
+  @Override
+  public Void visitBlockStmt(Stmt.Block stmt) {
+    beginScope();
+    resolve(stmt.statements);
+    endScope();
+    return null;
+  }
+
+  @Override
+  public Void visitVarStmt(Stmt.Var stmt) {
+    declare(stmt.name);
+    if (stmt.initializer != null) {
+      resolve(stmt.initializer);
+    }
+    define(stmt.name);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionStmt(Stmt.Function stmt) {
+    declare(stmt.name);
+    define(stmt.name);
+    resolveFunction(stmt, FunctionType.FUNCTION);
+    return null;
+  }
+
+  @Override
+  public Void visitExpressionStmt(Stmt.Expression stmt) {
+    resolve(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitIfStmt(Stmt.If stmt) {
+    resolve(stmt.condition);
+    resolve(stmt.thenBranch);
+    if (stmt.elseBranch != null) resolve(stmt.elseBranch);
+    return null;
+  }
+
+  @Override
+  public Void visitPrintStmt(Stmt.Print stmt) {
+    resolve(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitReturnStmt(Stmt.Return stmt) {
+    if (currentFunction == FunctionType.NONE) {
+      Lox.error(stmt.keyword, "Can't return from top-level code.");
+    }
+
+    if (stmt.value != null) {
+      if (currentFunction == FunctionType.INITIALIZER) {
+        Lox.error(stmt.keyword,
+            "Can't return a value from an initializer.");
+      }
+      resolve(stmt.value);
+    }
+
+    return null;
+  }
+
+  @Override
+  public Void visitWhileStmt(Stmt.While stmt) {
+    resolve(stmt.condition);
+    resolve(stmt.body);
+    return null;
+  }
 
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
@@ -67,141 +141,96 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     return null;
   }
 
-  @Override
-  public Void visitFunctionStmt(Stmt.Function stmt) {
-    declare(stmt.name);
-    define(stmt.name);
-    resolveFunction(stmt, FunctionType.FUNCTION);
-    return null;
-  }
+  /* =================== EXPRESSIONS =================== */
 
   @Override
-  public Void visitReturnStmt(Stmt.Return stmt) {
-    if (currentFunction == FunctionType.NONE) {
-      Lox.error(stmt.keyword, "Não é possível usar return fora de função.");
-    }
-
-    if (stmt.value != null) {
-      if (currentFunction == FunctionType.INITIALIZER) {
-        Lox.error(stmt.keyword,
-            "Não é possível retornar valor de um inicializador.");
-      }
-      resolve(stmt.value);
-    }
-    return null;
-  }
-
-  @Override public Void visitBlockStmt(Stmt.Block stmt) {
-    beginScope();
-    resolve(stmt.statements);
-    endScope();
-    return null;
-  }
-
-  @Override public Void visitVarStmt(Stmt.Var stmt) {
-    declare(stmt.name);
-    if (stmt.initializer != null) resolve(stmt.initializer);
-    define(stmt.name);
-    return null;
-  }
-
-  @Override public Void visitExpressionStmt(Stmt.Expression stmt) {
-    resolve(stmt.expression);
-    return null;
-  }
-
-  @Override public Void visitIfStmt(Stmt.If stmt) {
-    resolve(stmt.condition);
-    resolve(stmt.thenBranch);
-    if (stmt.elseBranch != null) resolve(stmt.elseBranch);
-    return null;
-  }
-
-  @Override public Void visitPrintStmt(Stmt.Print stmt) {
-    resolve(stmt.expression);
-    return null;
-  }
-
-  @Override public Void visitWhileStmt(Stmt.While stmt) {
-    resolve(stmt.condition);
-    resolve(stmt.body);
-    return null;
-  }
-
-  // ---------- Expressions ----------
-
-  @Override public Void visitThisExpr(Expr.This expr) {
-    if (currentClass == ClassType.NONE) {
-      Lox.error(expr.keyword,
-          "Não é possível usar 'this' fora de uma classe.");
-    }
-    resolveLocal(expr, expr.keyword);
-    return null;
-  }
-
-  @Override public Void visitVariableExpr(Expr.Variable expr) {
-    if (!scopes.isEmpty() &&
-        scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
-      Lox.error(expr.name,
-          "Não é possível ler variável no próprio inicializador.");
-    }
-    resolveLocal(expr, expr.name);
-    return null;
-  }
-
-  @Override public Void visitAssignExpr(Expr.Assign expr) {
+  public Void visitAssignExpr(Expr.Assign expr) {
     resolve(expr.value);
     resolveLocal(expr, expr.name);
     return null;
   }
 
-  @Override public Void visitBinaryExpr(Expr.Binary expr) {
+  @Override
+  public Void visitBinaryExpr(Expr.Binary expr) {
     resolve(expr.left);
     resolve(expr.right);
     return null;
   }
 
-  @Override public Void visitCallExpr(Expr.Call expr) {
+  @Override
+  public Void visitCallExpr(Expr.Call expr) {
     resolve(expr.callee);
     for (Expr arg : expr.arguments) resolve(arg);
     return null;
   }
 
-  @Override public Void visitGetExpr(Expr.Get expr) {
+  @Override
+  public Void visitGetExpr(Expr.Get expr) {
     resolve(expr.object);
     return null;
   }
 
-  @Override public Void visitSetExpr(Expr.Set expr) {
+  @Override
+  public Void visitSetExpr(Expr.Set expr) {
     resolve(expr.value);
     resolve(expr.object);
     return null;
   }
 
-  @Override public Void visitGroupingExpr(Expr.Grouping expr) {
+  @Override
+  public Void visitThisExpr(Expr.This expr) {
+    if (currentClass == ClassType.NONE) {
+      Lox.error(expr.keyword,
+          "Can't use 'this' outside of a class.");
+      return null;
+    }
+
+    resolveLocal(expr, expr.keyword);
+    return null;
+  }
+
+  @Override
+  public Void visitGroupingExpr(Expr.Grouping expr) {
     resolve(expr.expression);
     return null;
   }
 
-  @Override public Void visitLiteralExpr(Expr.Literal expr) {
+  @Override
+  public Void visitLiteralExpr(Expr.Literal expr) {
     return null;
   }
 
-  @Override public Void visitLogicalExpr(Expr.Logical expr) {
+  @Override
+  public Void visitLogicalExpr(Expr.Logical expr) {
     resolve(expr.left);
     resolve(expr.right);
     return null;
   }
 
-  @Override public Void visitUnaryExpr(Expr.Unary expr) {
+  @Override
+  public Void visitUnaryExpr(Expr.Unary expr) {
     resolve(expr.right);
     return null;
   }
 
-  // ---------- Helpers ----------
+  @Override
+  public Void visitVariableExpr(Expr.Variable expr) {
+    if (!scopes.isEmpty()
+        && scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
+      Lox.error(expr.name,
+          "Can't read local variable in its own initializer.");
+    }
 
-  private void resolveFunction(Stmt.Function function, FunctionType type) {
-    FunctionType enclosing = currentFunction;
+    resolveLocal(expr, expr.name);
+    return null;
+  }
+
+  /* =================== HELPERS =================== */
+
+  private void resolveFunction(
+      Stmt.Function function, FunctionType type) {
+
+    FunctionType enclosingFunction = currentFunction;
     currentFunction = type;
 
     beginScope();
@@ -212,7 +241,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     resolve(function.body);
     endScope();
 
-    currentFunction = enclosing;
+    currentFunction = enclosingFunction;
   }
 
   private void beginScope() {
@@ -225,15 +254,18 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private void declare(Token name) {
     if (scopes.isEmpty()) return;
-    if (scopes.peek().containsKey(name.lexeme)) {
+
+    Map<String, Boolean> scope = scopes.peek();
+    if (scope.containsKey(name.lexeme)) {
       Lox.error(name,
-          "Já existe uma variável com esse nome neste escopo.");
+          "Already a variable with this name in this scope.");
     }
-    scopes.peek().put(name.lexeme, false);
+    scope.put(name.lexeme, false);
   }
 
   private void define(Token name) {
-    if (!scopes.isEmpty()) scopes.peek().put(name.lexeme, true);
+    if (scopes.isEmpty()) return;
+    scopes.peek().put(name.lexeme, true);
   }
 
   private void resolveLocal(Expr expr, Token name) {
