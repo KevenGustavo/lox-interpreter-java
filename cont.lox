@@ -12,7 +12,8 @@ class Contador {
   }
 }
 
-var c = Contador(10);
+var c = Contador(12);
 c.inc();
 c.inc();
+
 print c.get();

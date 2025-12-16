@@ -1,0 +1,8 @@
+//  Classes
+class Teste {
+  ola() {
+    print "Sou uma classe!";
+  }
+}
+var t = Teste();
+t.ola();

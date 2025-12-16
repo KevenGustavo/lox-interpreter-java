@@ -1,0 +1,3 @@
+// Variáveis
+var nome = "Mundo";
+print "Ola " + nome;

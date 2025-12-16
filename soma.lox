@@ -1,0 +1,6 @@
+fun soma(a, b) {
+  return a + b;
+}
+
+print soma(8, 45);
+
